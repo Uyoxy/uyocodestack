@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Next.js Frontend
+  frontend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - STARKNET_RPC_URL=${STARKNET_RPC_URL}
+      - STARKNET_PRIVATE_KEY=${STARKNET_PRIVATE_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - codestack-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=codestack
+      - POSTGRES_USER=codestack_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - codestack-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - codestack-network
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+    networks:
+      - codestack-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  codestack-network:
+    driver: bridge
